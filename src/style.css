@@ -30,8 +30,24 @@ button { font: inherit; color: inherit; }
 }
 .section-kicker { display: block; font: 600 12px/1.2 Inter, sans-serif; letter-spacing: .22em; text-transform: uppercase; opacity: .62; margin-bottom: 14px; }
 
-.identity {
+/* El dock agrupa la tarjeta de contacto y los iconos de redes, que van a su izquierda. */
+.identity-dock {
   position: fixed; z-index: 40; right: clamp(16px, 3vw, 36px); bottom: clamp(16px, 3vw, 30px);
+  display: flex; align-items: flex-end; gap: 14px;
+}
+.social-links { display: flex; gap: 10px; }
+.social-links a {
+  width: 46px; height: 46px; display: grid; place-items: center; border-radius: 50%;
+  color: rgba(255,255,255,.78); text-decoration: none;
+  border: 1px solid rgba(255,255,255,.18); background: rgba(7,8,18,.72); backdrop-filter: blur(16px);
+  box-shadow: 0 14px 50px rgba(0,0,0,.26);
+  transition: transform .3s cubic-bezier(.22,1,.36,1), color .25s ease, border-color .25s ease, background .25s ease;
+}
+.social-links a svg { width: 21px; height: 21px; }
+.social-links a:hover { transform: translateY(-3px); color: #fff; border-color: rgba(255,255,255,.45); background: rgba(7,8,18,.85); }
+.social-links a:focus-visible { outline: 2px solid rgba(255,255,255,.9); outline-offset: 3px; }
+.identity {
+  position: relative;
   width: min(360px, calc(100vw - 32px)); min-height: 112px; padding: 14px; display: grid;
   grid-template-columns: 84px 1fr 26px; align-items: center; gap: 14px; overflow: hidden;
   border: 1px solid rgba(255,255,255,.18); background: rgba(7,8,18,.72); backdrop-filter: blur(16px);
@@ -41,7 +57,7 @@ button { font: inherit; color: inherit; }
 }
 .identity:hover { border-color: rgba(255,255,255,.3); }
 .identity:focus-visible { outline: 2px solid rgba(255,255,255,.9); outline-offset: 3px; }
-.identity-avatar { width: 84px; height: 84px; object-fit: cover; border-radius: 16px; transition: width .45s cubic-bezier(.22,1,.36,1), height .45s cubic-bezier(.22,1,.36,1); }
+.identity-avatar { width: 84px; height: 84px; object-fit: cover; border-radius: 50%; transition: width .45s cubic-bezier(.22,1,.36,1), height .45s cubic-bezier(.22,1,.36,1); }
 .identity-content { min-width: 0; }
 .identity strong { display: block; white-space: nowrap; font-family: "Space Grotesk", sans-serif; font-size: 16px; line-height: 1.1; }
 .identity-details { max-height: 110px; opacity: 1; transition: max-height .42s cubic-bezier(.22,1,.36,1), opacity .25s ease; }
@@ -145,7 +161,7 @@ button { font: inherit; color: inherit; }
 @media (max-width: 700px) {
   .section { height: 800vh; }
   .section-title { top: 26px; }
-  .identity { right: 14px; bottom: 14px; }
+  .identity-dock { right: 14px; bottom: 14px; flex-direction: column; align-items: flex-end; gap: 10px; }
   .identity.expanded { width: min(340px, calc(100vw - 28px)); }
   .floating-copy { width: min(290px, calc(100vw - 52px)); padding: 14px 16px; }
   .progress { left: 8px; }
@@ -157,7 +173,7 @@ button { font: inherit; color: inherit; }
   * { scroll-behavior: auto !important; }
   .floating-copy > *, .resume-list li { opacity: 1; transform: none; }
   .floating-copy .meta { opacity: .6; }
-  .identity, .identity-avatar, .identity-details, .identity-toggle { transition: none; }
+  .identity, .identity-avatar, .identity-details, .identity-toggle, .social-links a { transition: none; }
 }
 
 

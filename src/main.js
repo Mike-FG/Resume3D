@@ -107,6 +107,25 @@ function colorToCss(color) {
 
 const PORTFOLIO_URL = 'https://www.youtube.com/';
 
+// Redes sociales junto a la tarjeta de contacto. Los iconos son SVG en línea para no depender de archivos externos.
+const socialLinks = [
+  {
+    label: 'ArtStation',
+    url: 'https://www.artstation.com/miguel_ferrer',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M0 17.723l2.027 3.505h.001a2.424 2.424 0 0 0 2.164 1.333h13.457l-2.792-4.838H0zm24 .025c0-.484-.143-.935-.388-1.314L15.728 2.728a2.424 2.424 0 0 0-2.142-1.289H9.419L21.598 22.54l1.92-3.325c.378-.637.482-.919.482-1.467zm-11.129-3.462L7.428 4.858l-5.444 9.428h10.887z"/></svg>'
+  },
+  {
+    label: 'GitHub',
+    url: 'https://github.com/Mike-FG',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>'
+  },
+  {
+    label: 'Instagram',
+    url: 'https://www.instagram.com/miguelferrerorocher/',
+    icon: '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none"/></svg>'
+  }
+];
+
 function renderFloatingBlock(section, block, blockIndex, back = false) {
   const attr = back ? `data-back-block="${blockIndex}" aria-hidden="true"` : `data-block="${blockIndex}"`;
   const body = `<h3>${block[0]}</h3>${renderBlockBody(block[1])}${block[2] ? `<p class="meta">${block[2]}</p>` : ''}`;
@@ -118,6 +137,10 @@ function renderFloatingBlock(section, block, blockIndex, back = false) {
 
 const app = document.querySelector('#app');
 app.innerHTML = `
+  <div class="identity-dock">
+  <nav class="social-links" aria-label="Redes sociales">
+    ${socialLinks.map(link => `<a href="${link.url}" target="_blank" rel="noopener noreferrer" aria-label="${link.label}" title="${link.label}">${link.icon}</a>`).join('')}
+  </nav>
   <button class="identity expanded" data-identity type="button" aria-expanded="true" aria-label="Ocultar datos de contacto">
     <img class="identity-avatar" src="${profile.image}" alt="${profile.name}">
     <div class="identity-content">
@@ -129,6 +152,7 @@ app.innerHTML = `
     </div>
     <span class="identity-toggle" aria-hidden="true">−</span>
   </button>
+  </div>
   <div class="progress">${sections.map((_, i) => `<span data-dot="${i}"></span>`).join('')}</div>
   <div class="scroll-hint">Desliza ↓</div>
   ${sections.map((section, index) => `
@@ -639,7 +663,7 @@ function getPortfolioSlot(item, index, card) {
   // Márgenes amplios para que las tarjetas no rocen los bordes.
   const sideMargin = innerWidth < 700 ? 34 : Math.max(110, innerWidth * 0.085);
   const safeTop = titleRect.bottom + (innerWidth < 700 ? 72 : 88);
-  const safeBottom = innerHeight - (innerWidth < 700 ? 150 : 122);
+  const safeBottom = innerHeight - (innerWidth < 700 ? 150 : 165);
 
   // Reparto los centros por todo el alto útil dejando un hueco mínimo real entre bordes.
   // Si no cabe, reduzco la tarjeta en vez de juntarlas.
