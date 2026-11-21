@@ -1,24 +1,23 @@
 import * as THREE from 'three';
 import './style.css';
+import { createBubbleCluster, setupBubbleLights, updateBubbles } from './bubbles.js';
 
 const profile = {
   name: 'Miguel Ferrer',
-  image: '/drawing_icon.jpg',
+  // Uso BASE_URL para que la imagen cargue también si la web está en una subruta (GitHub Pages).
+  image: `${import.meta.env.BASE_URL}drawing_icon.jpg`,
   role: 'Software and Game Developer',
   email: 'm.ferrerg@outlook.es',
-  phone: '+34 717 719 078',
   location: 'Seville, Spain'
 };
 
-// AJUSTE PRINCIPAL DE TRANSICIONES
-// Sube este valor para que cada cambio entre párrafos ocupe más scroll.
-// Recomendado: 0.45 (rápido) → 0.85 (muy progresivo).
+// Cuánto scroll ocupa cada cambio de párrafo. Pruebo entre 0.45 (rápido) y 0.85 (muy progresivo).
 const PARAGRAPH_FADE_LENGTH = 0.85;
 
-// Porcentaje aproximado de la vida visible de cada párrafo a opacidad máxima.
+// Qué parte de su vida visible deja cada párrafo a opacidad máxima.
 const PARAGRAPH_FULL_OPACITY_RATIO = 0.60;
 
-// Velocidad de órbita de los párrafos alrededor del objeto 3D.
+// Cuántas vueltas dan los párrafos alrededor del objeto 3D.
 const PARAGRAPH_ORBIT_TURNS = 0.35;
 
 const sections = [
@@ -58,7 +57,7 @@ const sections = [
     ]
   },
   {
-    id: 'portfolio', label: 'Portfolio', geometry: 'hexsphere', color: 0x22d3a8,
+    id: 'portfolio', label: 'Portfolio', geometry: 'bubbles', color: 0x22d3a8,
     bgA: '#06120f', bgB: '#073f39',
     blocks: [
       ['Hermex', 'Aplicación personal en Python para gestión local de contraseñas.', 'Personal'],
@@ -125,7 +124,7 @@ app.innerHTML = `
       <strong>${profile.name}</strong>
       <div class="identity-details">
         <p>${profile.role}</p>
-        <p><a href="mailto:${profile.email}">${profile.email}</a><br><a href="tel:+34717719078">${profile.phone}</a><br>${profile.location}</p>
+        <p><a href="mailto:${profile.email}">${profile.email}</a><br>${profile.location}</p>
       </div>
     </div>
     <span class="identity-toggle" aria-hidden="true">−</span>
@@ -167,8 +166,7 @@ const threeSections = [];
 
 function makeGeometry(type) {
   if (type === 'knot') {
-    // Primera escena: nudo toroidal limpio y escultórico.
-    // Mantiene una silueta geométrica clara, pero evita la rigidez del reloj de arena.
+    // Nudo toroidal para la primera escena: se lee bien y evita la rigidez del reloj de arena.
     return new THREE.TorusKnotGeometry(1.08, 0.34, 180, 16, 2, 3);
   }
   if (type === 'triangle') {
@@ -193,7 +191,7 @@ function seededRandom(seed) {
 }
 
 function makeSatelliteTriangleGeometry(size, seed) {
-  // Prisma triangular muy fino: conserva una silueta triangular clara desde varios ángulos.
+  // Prisma triangular muy fino para que se reconozca como triángulo desde cualquier ángulo.
   const shape = new THREE.Shape();
   const skew = (seededRandom(seed + 1) - 0.5) * 0.22;
   shape.moveTo(0, size * (1.05 + skew));
@@ -321,10 +319,9 @@ function makeShipGeometry(size = 0.045) {
 }
 
 function buildSafeFlightCurve(seed, clusterIndex) {
-  // Recorrido amplio alrededor de una zona de exclusión generosa.
-  // Tras crear la curva comprobamos todos sus puntos y, si hiciera falta,
-  // escalamos la trayectoria completa hacia fuera. Así ni la nave ni su estela
-  // pueden atravesar la figura central aunque Catmull-Rom suavice demasiado.
+  // Trayectoria amplia alrededor de una zona de exclusión. Compruebo todos los puntos de la curva y,
+  // si hace falta, la escalo hacia fuera para que ni la nave ni la estela atraviesen la figura
+  // (Catmull-Rom suaviza demasiado).
   const safeRadius = 3.85;
   const points = [];
   const pointCount = 10;
@@ -347,7 +344,7 @@ function buildSafeFlightCurve(seed, clusterIndex) {
 
   let curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.35);
 
-  // Validación geométrica real de la curva completa.
+  // Compruebo la curva completa punto a punto.
   let minDistance = Infinity;
   for (let i = 0; i <= 260; i++) {
     minDistance = Math.min(minDistance, curve.getPoint(i / 260).length());
@@ -410,7 +407,7 @@ function createSpaceshipFleet(sectionIndex, config) {
       ship.userData.trailRoot = new THREE.Group();
       root.add(ship.userData.trailRoot);
 
-      // Dos estelas con un volumen mínimo. Se van construyendo y no desaparecen.
+      // Dos estelas con un volumen mínimo; las voy construyendo y no desaparecen.
       ship.userData.trailMaterials = [-1, 1].map(() => new THREE.MeshBasicMaterial({
         color: 0xffffff,
         transparent: true,
@@ -449,7 +446,7 @@ function updateSpaceshipFleet(fleet, now) {
       ship.rotation.z = Math.atan2(tangent.y, tangent.x);
       ship.rotation.y = -Math.asin(THREE.MathUtils.clamp(tangent.z, -1, 1));
 
-      // Construye dos estelas persistentes. Tras una vuelta completa, la ruta ya queda dibujada.
+      // Construyo dos estelas persistentes: tras una vuelta completa la ruta queda dibujada.
       if (!ship.userData.trailComplete) {
         const lastT = ship.userData.lastTrailT;
         if (lastT !== null && t < lastT) {
@@ -485,9 +482,18 @@ function setupScene(sectionEl, config, index) {
   host.prepend(renderer.domElement);
 
   const group = new THREE.Group(); scene.add(group);
-  const material = new THREE.MeshPhysicalMaterial({ color: config.color, roughness: 0.25, metalness: 0.2, clearcoat: 0.9, clearcoatRoughness: 0.18 });
-  const mesh = new THREE.Mesh(makeGeometry(config.geometry), material); mesh.rotation.set(.45, .45, .1); group.add(mesh);
-  const wire = new THREE.LineSegments(new THREE.WireframeGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .16 })); group.add(wire);
+  // Escena 3: varias pompas con shader de película fina (bubbles.js).
+  // Las otras escenas siguen con su figura sólida y wireframe.
+  const bubbles = config.geometry === 'bubbles' ? createBubbleCluster() : null;
+  let mesh, wire;
+  if (bubbles) {
+    group.add(bubbles.root);
+    mesh = bubbles.hero;
+  } else {
+    const material = new THREE.MeshPhysicalMaterial({ color: config.color, roughness: 0.25, metalness: 0.2, clearcoat: 0.9, clearcoatRoughness: 0.18 });
+    mesh = new THREE.Mesh(makeGeometry(config.geometry), material); mesh.rotation.set(.45, .45, .1); group.add(mesh);
+    wire = new THREE.LineSegments(new THREE.WireframeGeometry(mesh.geometry), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: .16 })); group.add(wire);
+  }
 
   const orbitGuides = createOrbitGuides(config);
   group.add(orbitGuides);
@@ -511,8 +517,9 @@ function setupScene(sectionEl, config, index) {
   const key = new THREE.DirectionalLight(0xffffff, 4.2); key.position.set(4, 5, 6); scene.add(key);
   const rim = new THREE.PointLight(config.color, 30, 12, 2); rim.position.set(-3.5, -1.5, 3); scene.add(rim);
   const ambient = new THREE.AmbientLight(0xffffff, .7); scene.add(ambient);
+  if (bubbles) setupBubbleLights(scene, key, rim, ambient, bubbles);
 
-  threeSections.push({ sectionEl, host, scene, camera, renderer, group, mesh, wire, orbitGuides, satellites, spaceshipFleet, particles, key, rim, ambient, config, index, stickyReached: new Array(config.blocks.length).fill(false) });
+  threeSections.push({ sectionEl, host, scene, camera, renderer, group, mesh, wire, bubbles, orbitGuides, satellites, spaceshipFleet, particles, key, rim, ambient, config, index, stickyReached: new Array(config.blocks.length).fill(false) });
 }
 
 sections.forEach((config, index) => setupScene(document.querySelector(`[data-section="${index}"]`), config, index));
@@ -520,17 +527,56 @@ sections.forEach((config, index) => setupScene(document.querySelector(`[data-sec
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
 function smooth(v) { v = clamp01(v); return v * v * (3 - 2 * v); }
 
+// Ajustes de animación de las tarjetas (tiempos en segundos: menos = más reactivo, más = más suave).
+const PROGRESS_SMOOTH_TAU = 0.14;   // amortigua el scroll (evita los saltos de la rueda)
+const POSITION_SMOOTH_TAU = 0.10;   // suaviza el movimiento de cada tarjeta hacia su destino
+const OPACITY_SMOOTH_TAU = 0.09;    // suaviza aparición/desaparición y el paso a "fijada"
+const CARD_ENTER_OFFSET = 14;       // px que sube la tarjeta al aparecer
+const CARD_ENTER_SCALE = 0.04;      // escala inicial = 1 - este valor
+const CARD_ENTER_BLUR = 5;          // px de desenfoque inicial (solo capa frontal)
+
+const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+let reduceMotion = reduceMotionQuery.matches;
+reduceMotionQuery.addEventListener?.('change', event => { reduceMotion = event.matches; });
+
+// Vectores temporales para no crear objetos en cada frame.
+const _projVec = new THREE.Vector3();
+const _orbitVec = new THREE.Vector3();
+const _anchorVec = new THREE.Vector3();
+const _modelCenter = new THREE.Vector3();
+
+// Elementos y estado de cada sección, calculados una sola vez.
+function getCache(item) {
+  if (item.cache) return item.cache;
+  const el = item.sectionEl;
+  const fronts = [...el.querySelectorAll('[data-block]')];
+  const backs = [...el.querySelectorAll('[data-back-block]')];
+  const connectors = attr => [...el.querySelectorAll(`[${attr}]`)].map(g => ({
+    g, line: g.querySelector('line'), circle: g.querySelector('circle'), visible: null
+  }));
+  item.cache = {
+    title: el.querySelector('.section-title'),
+    fronts,
+    backs,
+    frontConn: connectors('data-connector'),
+    backConn: connectors('data-back-connector'),
+    states: fronts.map(() => ({ init: false, cx: 0, cy: 0, t: 0, f: 0, eStr: '', blur: '' })),
+    dp: null
+  };
+  return item.cache;
+}
+
 function projectToScreen(item, point) {
-  const projected = point.clone().project(item.camera);
+  _projVec.copy(point).project(item.camera);
   return {
-    x: (projected.x * .5 + .5) * innerWidth,
-    y: (-projected.y * .5 + .5) * innerHeight,
-    z: projected.z
+    x: (_projVec.x * .5 + .5) * innerWidth,
+    y: (-_projVec.y * .5 + .5) * innerHeight,
+    z: _projVec.z
   };
 }
 
 function getSafePosition(item, pos, card, side, fullOpacity = 0, modelScreen = null) {
-  const title = item.sectionEl.querySelector('.section-title');
+  const title = getCache(item).title;
   const titleRect = title.getBoundingClientRect();
   const cardWidth = card.offsetWidth || Math.min(390, innerWidth * .34);
   const cardHeight = card.offsetHeight || 150;
@@ -539,7 +585,7 @@ function getSafePosition(item, pos, card, side, fullOpacity = 0, modelScreen = n
   let x = pos.x;
   let y = pos.y;
 
-  // Reserva el área del título y evita que cualquier tarjeta la invada.
+  // Reservo el área del título para que ninguna tarjeta la invada.
   const safeTop = titleRect.bottom + (innerWidth < 700 ? 42 : 62);
   y = Math.max(y, safeTop + cardHeight * .5);
   y = Math.min(y, innerHeight - margin - cardHeight * .5);
@@ -549,8 +595,8 @@ function getSafePosition(item, pos, card, side, fullOpacity = 0, modelScreen = n
     return { x, y };
   }
 
-  // Cuando el párrafo alcanza opacidad máxima lo anclamos claramente a un lateral.
-  // Esto evita que la órbita lo deje delante de la figura justo durante el momento de lectura.
+  // Al llegar a opacidad máxima anclo la tarjeta a un lateral, para que la órbita no la deje
+  // delante de la figura mientras se lee.
   const modelX = modelScreen?.x ?? innerWidth * .5;
   const modelClearance = Math.min(260, Math.max(170, innerWidth * .16));
   const leftRightEdge = Math.min(innerWidth * .47, modelX - modelClearance);
@@ -569,7 +615,7 @@ function getSafePosition(item, pos, card, side, fullOpacity = 0, modelScreen = n
   return { x, y };
 }
 function getResumePinnedPosition(item, index, card) {
-  const titleRect = item.sectionEl.querySelector('.section-title').getBoundingClientRect();
+  const titleRect = getCache(item).title.getBoundingClientRect();
   const margin = innerWidth < 700 ? 18 : 30;
   const cardWidth = card.offsetWidth || 360;
   const safeTop = titleRect.bottom + 72;
@@ -583,20 +629,20 @@ function getResumePinnedPosition(item, index, card) {
 }
 
 function getPortfolioSlot(item, index, card) {
-  const titleRect = item.sectionEl.querySelector('.section-title').getBoundingClientRect();
+  const titleRect = getCache(item).title.getBoundingClientRect();
   const rows = Math.ceil(item.config.blocks.length / 2);
   const row = Math.floor(index / 2);
   const side = index % 2 === 0 ? 'left' : 'right';
   const cardWidth = card.offsetWidth || (innerWidth < 700 ? 245 : 270);
   const cardHeight = card.offsetHeight || 96;
 
-  // Márgenes deliberadamente amplios: las tarjetas no rozan los bordes de página.
+  // Márgenes amplios para que las tarjetas no rocen los bordes.
   const sideMargin = innerWidth < 700 ? 34 : Math.max(110, innerWidth * 0.085);
   const safeTop = titleRect.bottom + (innerWidth < 700 ? 72 : 88);
   const safeBottom = innerHeight - (innerWidth < 700 ? 150 : 122);
 
-  // Repartimos los centros en todo el alto útil y dejamos un gap mínimo REAL entre bordes.
-  // Si la ventana no tiene altura suficiente, reducimos visualmente la tarjeta en lugar de juntarlas.
+  // Reparto los centros por todo el alto útil dejando un hueco mínimo real entre bordes.
+  // Si no cabe, reduzco la tarjeta en vez de juntarlas.
   const minGap = innerWidth < 700 ? 34 : 46;
   const usable = Math.max(1, safeBottom - safeTop);
   let step = rows > 1 ? usable / (rows - 1) : 0;
@@ -604,7 +650,7 @@ function getPortfolioSlot(item, index, card) {
   const compactScale = rows > 1 && step < requiredStep ? Math.max(0.78, step / requiredStep) : 1;
   card.style.setProperty('--portfolio-slot-scale', compactScale.toFixed(3));
 
-  // Al escalar la tarjeta, su altura efectiva baja y recuperamos separación visual.
+  // Al escalar la tarjeta baja su altura efectiva, así que recupero separación.
   const effectiveHeight = cardHeight * compactScale;
   const topCenter = safeTop + effectiveHeight * 0.5;
   const bottomCenter = safeBottom - effectiveHeight * 0.5;
@@ -621,8 +667,44 @@ function getPortfolioSlot(item, index, card) {
   };
 }
 
+function getAboutSlot(item, index, card) {
+  // Sobre mí: dos columnas laterales (una en móvil), por debajo del título y por encima de la tarjeta
+  // de contacto, con separación uniforme.
+  const titleRect = getCache(item).title.getBoundingClientRect();
+  const mobile = innerWidth < 700;
+  const count = item.config.blocks.length;
+  const cols = mobile ? 1 : 2;
+  const rows = Math.ceil(count / cols);
+  const row = Math.floor(index / cols);
+  const side = index % 2 === 0 ? 'left' : 'right';
+  const cardWidth = card.offsetWidth || 340;
+  const cardHeight = card.offsetHeight || 150;
+
+  const margin = mobile ? 26 : Math.max(24, Math.min(72, innerWidth * 0.05));
+  const safeTop = titleRect.bottom + (mobile ? 36 : 56);
+  const safeBottom = innerHeight - (mobile ? 96 : 185);
+  const minGap = mobile ? 14 : 28;
+  const usable = Math.max(1, safeBottom - safeTop);
+
+  // Si no caben con el hueco mínimo, las reduzco un poco en lugar de solaparlas.
+  const needed = rows * cardHeight + (rows - 1) * minGap;
+  const compactScale = needed > usable ? Math.max(0.62, usable / needed) : 1;
+  card.style.setProperty('--portfolio-slot-scale', compactScale.toFixed(3));
+
+  const effectiveHeight = cardHeight * compactScale;
+  const step = rows > 1 ? (usable - effectiveHeight) / (rows - 1) : 0;
+  const y = safeTop + effectiveHeight * 0.5 + step * row;
+
+  if (mobile) return { x: innerWidth * 0.5, y, side };
+  return {
+    x: side === 'left' ? margin + cardWidth : innerWidth - margin - cardWidth,
+    y,
+    side
+  };
+}
+
 function getResumeTechnologyPosition(item, card) {
-  const experience = item.sectionEl.querySelector('[data-block="1"]');
+  const experience = getCache(item).fronts[1];
   if (!experience) return null;
   const expRect = experience.getBoundingClientRect();
   const cardHeight = card.offsetHeight || 130;
@@ -633,7 +715,7 @@ function getResumeTechnologyPosition(item, card) {
     return { x: innerWidth * 0.5, y: Math.max(cardHeight * 0.5 + 18, y), side: 'left' };
   }
 
-  // Misma columna que Experiencia profesional, pero claramente por encima.
+  // Misma columna que Experiencia profesional, pero por encima.
   return {
     x: expRect.left,
     y: Math.max(cardHeight * 0.5 + 24, y),
@@ -643,7 +725,7 @@ function getResumeTechnologyPosition(item, card) {
 
 function avoidResumePinned(item, pos, card, side) {
   if (innerWidth < 700) return pos;
-  const pinned = [0, 1].map(i => item.sectionEl.querySelector(`[data-block="${i}"]`)).filter(Boolean);
+  const pinned = [0, 1].map(i => getCache(item).fronts[i]).filter(Boolean);
   const cardW = card.offsetWidth || 350;
   const cardH = card.offsetHeight || 150;
   let y = pos.y;
@@ -662,14 +744,17 @@ function avoidResumePinned(item, pos, card, side) {
   return { x: pos.x, y: Math.max(cardH / 2 + 20, Math.min(innerHeight - cardH / 2 - 24, y)) };
 }
 
-function setConnector(item, index, opacity, modelAnchor, back = false) {
-  const card = item.sectionEl.querySelector(back ? `[data-back-block="${index}"]` : `[data-block="${index}"]`);
-  const connector = item.sectionEl.querySelector(back ? `[data-back-connector="${index}"]` : `[data-connector="${index}"]`);
-  if (!card || !connector) return;
-  if (opacity < .015) { connector.style.opacity = '0'; return; }
+function setConnector(item, index, opacity, modelAnchor, back = false, draw = 1) {
+  const cache = getCache(item);
+  const card = (back ? cache.backs : cache.fronts)[index];
+  const conn = (back ? cache.backConn : cache.frontConn)[index];
+  if (!card || !conn) return;
+  if (opacity < .015) {
+    if (conn.visible !== false) { conn.g.style.opacity = '0'; conn.visible = false; }
+    return;
+  }
+  conn.visible = true;
 
-  const line = connector.querySelector('line');
-  const circle = connector.querySelector('circle');
   const cardRect = card.getBoundingClientRect();
   const hostRect = item.host.getBoundingClientRect();
   const target = projectToScreen(item, modelAnchor);
@@ -677,18 +762,26 @@ function setConnector(item, index, opacity, modelAnchor, back = false) {
   const cardCenterY = cardRect.top + cardRect.height / 2;
   const fromX = cardCenterX < target.x ? cardRect.right : cardRect.left;
 
-  line.setAttribute('x1', (fromX - hostRect.left).toFixed(1));
-  line.setAttribute('y1', (cardCenterY - hostRect.top).toFixed(1));
-  line.setAttribute('x2', (target.x - hostRect.left).toFixed(1));
-  line.setAttribute('y2', (target.y - hostRect.top).toFixed(1));
-  circle.setAttribute('cx', (target.x - hostRect.left).toFixed(1));
-  circle.setAttribute('cy', (target.y - hostRect.top).toFixed(1));
-  connector.style.opacity = (opacity * (back ? .22 : .52)).toFixed(3);
+  // La línea crece desde la tarjeta hasta el modelo a medida que aparece.
+  const x1 = fromX - hostRect.left;
+  const y1 = cardCenterY - hostRect.top;
+  const tx = target.x - hostRect.left;
+  const ty = target.y - hostRect.top;
+  const x2 = x1 + (tx - x1) * draw;
+  const y2 = y1 + (ty - y1) * draw;
+
+  conn.line.setAttribute('x1', x1.toFixed(1));
+  conn.line.setAttribute('y1', y1.toFixed(1));
+  conn.line.setAttribute('x2', x2.toFixed(1));
+  conn.line.setAttribute('y2', y2.toFixed(1));
+  conn.circle.setAttribute('cx', x2.toFixed(1));
+  conn.circle.setAttribute('cy', y2.toFixed(1));
+  conn.g.style.opacity = (opacity * (back ? .22 : .52)).toFixed(3);
 }
 
 function blockOpacity(i, cursor, count) {
-  // Cada párrafo tiene una meseta central de opacidad 1 y fades largos a ambos lados.
-  // PARAGRAPH_FULL_OPACITY_RATIO controla qué porcentaje de su vida visible permanece al 100%.
+  // Cada párrafo tiene una meseta de opacidad 1 y fades largos a los lados.
+  // PARAGRAPH_FULL_OPACITY_RATIO decide cuánto dura esa meseta.
   const distance = Math.abs(i - cursor);
   const outer = 1.0 + PARAGRAPH_FADE_LENGTH * 0.18;
   const plateau = outer * PARAGRAPH_FULL_OPACITY_RATIO;
@@ -698,19 +791,43 @@ function blockOpacity(i, cursor, count) {
   return 1 - smooth(fadeProgress);
 }
 
+let lastFrameTime = performance.now();
+const progressDots = [...document.querySelectorAll('[data-dot]')];
+
 function update() {
   const viewportH = innerHeight;
   let activeSection = 0;
   const now = performance.now();
+  const dt = Math.min(0.1, Math.max(0.001, (now - lastFrameTime) / 1000));
+  lastFrameTime = now;
+
+  // Suavizado independiente de los FPS; con movimiento reducido no hay inercia.
+  const kProgress = reduceMotion ? 1 : 1 - Math.exp(-dt / PROGRESS_SMOOTH_TAU);
+  const kPosition = reduceMotion ? 1 : 1 - Math.exp(-dt / POSITION_SMOOTH_TAU);
+  const kOpacity = reduceMotion ? 1 : 1 - Math.exp(-dt / OPACITY_SMOOTH_TAU);
+  const mobile = innerWidth < 700;
 
   threeSections.forEach((item, sectionIndex) => {
+    const cache = getCache(item);
     const rect = item.sectionEl.getBoundingClientRect();
     const travel = item.sectionEl.offsetHeight - viewportH;
-    const progress = clamp01((-rect.top) / Math.max(1, travel));
+    const rawProgress = clamp01((-rect.top) / Math.max(1, travel));
     if (rect.top <= viewportH * .45 && rect.bottom >= viewportH * .55) activeSection = sectionIndex;
 
-    const frontBlocks = [...item.sectionEl.querySelectorAll('[data-block]')];
-    const backBlocks = [...item.sectionEl.querySelectorAll('[data-back-block]')];
+    // Las secciones fuera de pantalla ni se actualizan ni se renderizan.
+    item.visible = rect.bottom > 0 && rect.top < viewportH;
+    if (!item.visible) {
+      cache.dp = rawProgress;
+      cache.states.forEach(state => { state.init = false; });
+      return;
+    }
+
+    // Amortiguo el progreso: la rueda avanza a saltos y no quiero que las tarjetas vayan a tirones.
+    cache.dp = cache.dp === null ? rawProgress : cache.dp + (rawProgress - cache.dp) * kProgress;
+    const progress = cache.dp;
+
+    const frontBlocks = cache.fronts;
+    const backBlocks = cache.backs;
     const count = frontBlocks.length;
     const cursor = progress * Math.max(1, count - 1);
     const p = smooth(progress);
@@ -724,9 +841,8 @@ function update() {
     item.group.scale.setScalar(scale);
     item.particles.rotation.y = now * .000025 * (sectionIndex + 1);
 
-    // Las luces también orbitan alrededor de la figura.
-    // La luz blanca recorre una órbita amplia y elevada; la luz de color va en sentido contrario
-    // y con un radio algo menor para que el volumen cambie continuamente sin perder legibilidad.
+    // Las luces orbitan alrededor de la figura: la blanca en una órbita amplia y elevada, la de color en
+    // sentido contrario y con menos radio, para que el volumen cambie sin perder legibilidad.
     const lightTime = now * 0.00022;
     const keyAngle = lightTime + sectionIndex * 1.15;
     const rimAngle = -lightTime * 1.28 + sectionIndex * 0.85 + 1.7;
@@ -744,6 +860,7 @@ function update() {
     if (!item.key.target.parent) item.scene.add(item.key.target);
 
     updateSpaceshipFleet(item.spaceshipFleet, now);
+    if (item.bubbles) updateBubbles(item.bubbles, now);
 
     // Satélites: misma familia cromática, pequeñas órbitas independientes.
     item.orbitGuides.rotation.y = -p * Math.PI * 0.42 + now * 0.000018;
@@ -752,55 +869,59 @@ function update() {
     item.satellites.rotation.y = -p * Math.PI * 1.05 + now * .000045;
     item.satellites.rotation.z = Math.sin(p * Math.PI * 2) * .09;
     item.satellites.children.forEach((cluster, c) => {
-      // Las rocas se mueven lentamente dentro de su cluster.
+      // Las rocas se mueven despacio dentro de su cluster.
       cluster.userData.rocks.rotation.y = now * .00026 * cluster.userData.speed;
       cluster.userData.rocks.rotation.x = Math.sin(now * .00022 + c) * .24;
     });
 
     item.group.updateMatrixWorld(true);
-    const modelCenter = new THREE.Vector3(0, 0, .5).applyMatrix4(item.group.matrixWorld);
-    const modelScreen = projectToScreen(item, modelCenter);
+    _modelCenter.set(0, 0, .5).applyMatrix4(item.group.matrixWorld);
+    const modelScreen = projectToScreen(item, _modelCenter);
 
     frontBlocks.forEach((front, i) => {
       const back = backBlocks[i];
+      const state = cache.states[i];
       let timelineOpacity = blockOpacity(i, cursor, count);
 
-      // Resume: Educación y Experiencia profesional permanecen siempre a opacidad máxima.
-      // Portfolio: cuando un bloque alcanza por primera vez el 100%, queda fijado a máxima opacidad.
+      // Resume: Educación y Experiencia siempre a opacidad máxima.
+      // Portfolio: cuando un bloque llega por primera vez al 100% lo dejo fijado.
       const pinnedResumeBlock = sectionIndex === 1 && (i === 0 || i === 1);
-      if (sectionIndex === 2 && (item.stickyReached[i] || timelineOpacity >= 0.999)) {
+      // En Sobre mí pasa lo mismo: las tarjetas aparecen una a una y se quedan.
+      const stickySection = sectionIndex === 0 || sectionIndex === 2;
+      if (stickySection && (item.stickyReached[i] || timelineOpacity >= 0.999)) {
         item.stickyReached[i] = true;
         timelineOpacity = 1;
       }
-      const stickyPortfolioBlock = sectionIndex === 2 && item.stickyReached[i];
-      const forceFrontVisible = pinnedResumeBlock || stickyPortfolioBlock;
+      const stickyBlock = stickySection && item.stickyReached[i];
+      // Sobre mí: la tarjeta nace ya en su hueco final, sin pasar por la órbita, y no cambia de capa;
+      // por eso su opacidad sigue la línea de tiempo en vez de forzarse a 1.
+      const slotFromStart = sectionIndex === 0;
+      const forceFrontVisible = pinnedResumeBlock || (stickyBlock && !slotFromStart);
       if (pinnedResumeBlock) timelineOpacity = 1;
 
-      // Cada bloque tiene un desfase distinto y gira físicamente alrededor del centro.
+      // Cada bloque tiene su desfase y gira alrededor del centro.
       const angle = progress * Math.PI * 2 * PARAGRAPH_ORBIT_TURNS + i * 2.15 + sectionIndex * .55;
       const radiusX = 2.55 + (i % 2) * .28;
       const radiusY = 1.28 + (i % 3) * .13;
       const depth = Math.sin(angle);
-      const orbitPoint = new THREE.Vector3(
+      _orbitVec.set(
         Math.cos(angle) * radiusX,
         Math.sin(angle * .72 + i * .4) * radiusY,
         depth * 1.65
       );
-      const projected = projectToScreen(item, orbitPoint);
-      // Los bloques fijados usan lados alternos estables para mantenerse legibles.
+      const projected = projectToScreen(item, _orbitVec);
+      // Los bloques fijados usan lados alternos estables para que se lean bien.
       const side = forceFrontVisible ? (i % 2 === 0 ? 'left' : 'right') : (Math.cos(angle) < 0 ? 'left' : 'right');
       let safe = getSafePosition(item, projected, front, side, forceFrontVisible ? 1 : timelineOpacity, modelScreen);
       let resolvedSide = side;
 
-      // Resume: Educación y Experiencia profesional ocupan posiciones reservadas.
-      // Los demás bloques nunca pueden solaparse con esas dos zonas estáticas.
+      // Resume: Educación y Experiencia ocupan posiciones reservadas; el resto no puede solaparse con ellas.
       if (sectionIndex === 1 && pinnedResumeBlock) {
         const pinned = getResumePinnedPosition(item, i, front);
         safe = { x: pinned.x, y: pinned.y };
         resolvedSide = pinned.side;
       } else if (sectionIndex === 1) {
-        // Tecnologías se presenta sobre Experiencia profesional, en su misma columna.
-        // Así no compite con Educación en la parte superior izquierda.
+        // Tecnologías va sobre Experiencia profesional, en su misma columna, para que no compita con Educación.
         if (i === 3 && timelineOpacity > 0.02) {
           const technologyPos = getResumeTechnologyPosition(item, front);
           if (technologyPos) {
@@ -812,26 +933,63 @@ function update() {
         }
       }
 
-      // Portfolio: al quedar fijados, los bloques pasan a una retícula lateral compacta.
-      // Esto permite conservar todos los proyectos visibles sin solapamientos.
-      if (sectionIndex === 2 && stickyPortfolioBlock) {
-        const slot = getPortfolioSlot(item, i, front);
+      // Portfolio: al fijarse, los bloques pasan a una retícula lateral compacta para que quepan todos sin solaparse.
+      if (stickyBlock || slotFromStart) {
+        const slot = sectionIndex === 0 ? getAboutSlot(item, i, front) : getPortfolioSlot(item, i, front);
         safe = { x: slot.x, y: slot.y };
         resolvedSide = slot.side;
       }
 
-      // Los bloques fijados permanecen siempre en la capa frontal a opacidad 1.
-      // El resto conserva el comportamiento orbital delante/detrás del modelo.
-      const frontDepth = smooth((depth + .18) / .48);
-      const backDepth = smooth((-depth + .12) / .42);
-      const frontOpacity = forceFrontVisible ? 1 : timelineOpacity * frontDepth;
-      const backOpacity = forceFrontVisible ? 0 : timelineOpacity * backDepth * .42;
+      // Centro objetivo de la tarjeta. Antes el lado se resolvía con un ancla CSS que cambiaba de golpe;
+      // ahora trabajo con coordenadas de centro para poder suavizarlo.
+      const w = front.offsetWidth;
+      const h = front.offsetHeight;
+      const targetCx = mobile ? safe.x : (resolvedSide === 'left' ? safe.x - w / 2 : safe.x + w / 2);
+      const targetCy = safe.y;
 
-      [front, back].forEach(block => {
-        block.dataset.side = resolvedSide;
-        block.style.left = `${safe.x}px`;
-        block.style.top = `${safe.y}px`;
-      });
+      // Opacidad suavizada para evitar el pop al fijar una tarjeta o cambiar de capa.
+      const forced = forceFrontVisible ? 1 : 0;
+      if (!state.init) { state.t = timelineOpacity; state.f = forced; }
+      else {
+        state.t += (timelineOpacity - state.t) * kOpacity;
+        state.f += (forced - state.f) * kOpacity;
+      }
+
+      // Los bloques fijados quedan siempre en la capa frontal a opacidad 1; el resto sigue la órbita
+      // delante/detrás del modelo.
+      const frontDepth = slotFromStart ? 1 : smooth((depth + .18) / .48);
+      const backDepth = slotFromStart ? 0 : smooth((-depth + .12) / .42);
+      const frontOpacity = state.t * frontDepth + (1 - state.t * frontDepth) * state.f;
+      const backOpacity = state.t * backDepth * .42 * (1 - state.f);
+      const hidden = frontOpacity < .008 && backOpacity < .008;
+
+      // Si la tarjeta es invisible la coloco directamente; si es visible, se desliza hacia su destino.
+      if (!state.init || hidden) {
+        state.cx = targetCx; state.cy = targetCy; state.init = true;
+      } else {
+        state.cx += (targetCx - state.cx) * kPosition;
+        state.cy += (targetCy - state.cy) * kPosition;
+      }
+
+      // Entrada: elevación, escala y desenfoque ligados a la misma curva que la opacidad.
+      const ee = reduceMotion ? 1 : smooth(state.t);
+      const lift = (1 - ee) * CARD_ENTER_OFFSET;
+      const entryScale = 1 - (1 - ee) * CARD_ENTER_SCALE;
+      const transform = `translate3d(${(state.cx - w / 2).toFixed(2)}px, ${(state.cy - h / 2 + lift).toFixed(2)}px, 0) scale(${entryScale.toFixed(4)})`;
+      front.style.transform = transform;
+      back.style.transform = transform;
+
+      // --e alimenta el escalonado de los textos internos (style.css).
+      const eStr = ee.toFixed(3);
+      if (state.eStr !== eStr) {
+        front.style.setProperty('--e', eStr);
+        back.style.setProperty('--e', eStr);
+        state.eStr = eStr;
+      }
+
+      const blur = reduceMotion ? 0 : (1 - ee) * CARD_ENTER_BLUR;
+      const blurStr = blur > .08 ? `blur(${blur.toFixed(2)}px)` : '';
+      if (state.blur !== blurStr) { front.style.filter = blurStr; state.blur = blurStr; }
 
       front.style.opacity = frontOpacity.toFixed(3);
       front.style.visibility = frontOpacity < .008 ? 'hidden' : 'visible';
@@ -840,20 +998,21 @@ function update() {
       back.style.opacity = backOpacity.toFixed(3);
       back.style.visibility = backOpacity < .008 ? 'hidden' : 'visible';
 
-      // Punto de conexión levemente desplazado hacia el lado del bloque.
-      const anchorLocal = new THREE.Vector3(resolvedSide === 'left' ? -.66 : .66, Math.sin(angle) * .22, .5);
-      const anchorWorld = anchorLocal.applyMatrix4(item.group.matrixWorld);
-      setConnector(item, i, frontOpacity, anchorWorld, false);
-      setConnector(item, i, backOpacity, modelCenter, true);
+      // Punto de conexión desplazado un poco hacia el lado del bloque.
+      _anchorVec.set(resolvedSide === 'left' ? -.66 : .66, Math.sin(angle) * .22, .5).applyMatrix4(item.group.matrixWorld);
+      setConnector(item, i, frontOpacity, _anchorVec, false, ee);
+      setConnector(item, i, backOpacity, _modelCenter, true, ee);
     });
   });
 
-  document.querySelectorAll('[data-dot]').forEach((dot, i) => dot.classList.toggle('active', i === activeSection));
+  progressDots.forEach((dot, i) => dot.classList.toggle('active', i === activeSection));
 }
 
 function animate() {
   update();
-  threeSections.forEach(item => item.renderer.render(item.scene, item.camera));
+  threeSections.forEach(item => {
+    if (item.visible !== false) item.renderer.render(item.scene, item.camera);
+  });
   requestAnimationFrame(animate);
 }
 animate();

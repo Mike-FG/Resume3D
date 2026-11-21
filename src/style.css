@@ -34,7 +34,7 @@ button { font: inherit; color: inherit; }
   position: fixed; z-index: 40; right: clamp(16px, 3vw, 36px); bottom: clamp(16px, 3vw, 30px);
   width: min(360px, calc(100vw - 32px)); min-height: 112px; padding: 14px; display: grid;
   grid-template-columns: 84px 1fr 26px; align-items: center; gap: 14px; overflow: hidden;
-  border: 1px solid rgba(255,255,255,.18); background: rgba(7,8,18,.62); backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,.18); background: rgba(7,8,18,.72); backdrop-filter: blur(16px);
   border-radius: 22px; box-shadow: 0 14px 50px rgba(0,0,0,.26); cursor: pointer; text-align: left;
   transition: width .48s cubic-bezier(.22,1,.36,1), min-height .48s cubic-bezier(.22,1,.36,1),
     padding .48s cubic-bezier(.22,1,.36,1), gap .48s cubic-bezier(.22,1,.36,1), border-radius .48s cubic-bezier(.22,1,.36,1);
@@ -58,23 +58,39 @@ button { font: inherit; color: inherit; }
 .copy-layer-back { z-index: 3; }
 .copy-layer-front { z-index: 10; }
 .floating-copy {
-  position: absolute; width: min(390px, 34vw); padding: 17px 19px;
+  position: absolute; left: 0; top: 0; width: min(390px, 34vw); padding: 17px 19px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, rgba(255,255,255,.12)); border-radius: 17px;
-  background: linear-gradient(135deg, rgba(10,12,25,.42), rgba(10,12,25,.19));
+  background: linear-gradient(135deg, rgba(10,12,25,.52), rgba(10,12,25,.29));
   box-shadow: 0 14px 50px rgba(0,0,0,.16);
-  opacity: 0; transform: translate(-50%, -50%); transition: none;
-  will-change: opacity, left, top; pointer-events: none;
+  /* Posición, escala y opacidad las calculo en main.js en cada frame (transform: translate3d), por eso no hay transition. */
+  opacity: 0; transform: translate3d(0, 0, 0); transition: none;
+  scale: var(--portfolio-slot-scale, 1); transform-origin: center;
+  will-change: transform, opacity; pointer-events: none;
 }
 .copy-layer-back .floating-copy {
-  background: rgba(5,6,14,.14); border-color: color-mix(in srgb, var(--accent) 15%, transparent);
+  background: rgba(5,6,14,.24); border-color: color-mix(in srgb, var(--accent) 15%, transparent);
   filter: saturate(.7); box-shadow: none;
 }
-.floating-copy[data-side="left"] { transform: translate(-100%, -50%); }
-.floating-copy[data-side="right"] { transform: translate(0, -50%); }
 .floating-copy h3 { margin: 0 0 9px; font: 600 clamp(17px, 1.55vw, 23px)/1.1 "Space Grotesk", sans-serif; }
 .floating-copy p { margin: 0; color: rgba(255,255,255,.82); font-size: clamp(13px, 1vw, 15px); line-height: 1.62; }
-.floating-copy .meta { margin-top: 9px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: .6; }
+.floating-copy .meta { margin-top: 9px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; opacity: calc(var(--k, 1) * .6); }
 .keyword { color: var(--accent); font-weight: 650; text-shadow: 0 0 18px color-mix(in srgb, var(--accent) 38%, transparent); }
+
+/* Entrada escalonada del contenido: main.js escribe --e (0→1) en cada tarjeta y cada hijo
+   se revela cuando --e supera su retardo --d. */
+.floating-copy > *,
+.resume-list li {
+  --k: clamp(0, (var(--e, 1) - var(--d, 0)) * 3.2, 1);
+  opacity: var(--k);
+  transform: translateY(calc((1 - var(--k)) * 8px));
+}
+.floating-copy > :nth-child(2) { --d: .12; }
+.floating-copy > :nth-child(3) { --d: .2; }
+.floating-copy > .resume-list { opacity: 1; transform: none; }
+.resume-list li:nth-child(1) { --d: .1; }
+.resume-list li:nth-child(2) { --d: .2; }
+.resume-list li:nth-child(3) { --d: .3; }
+.resume-list li:nth-child(4) { --d: .4; }
 
 .resume-list {
   list-style: none;
@@ -132,7 +148,6 @@ button { font: inherit; color: inherit; }
   .identity { right: 14px; bottom: 14px; }
   .identity.expanded { width: min(340px, calc(100vw - 28px)); }
   .floating-copy { width: min(290px, calc(100vw - 52px)); padding: 14px 16px; }
-  .floating-copy[data-side="left"], .floating-copy[data-side="right"] { transform: translate(-50%, -50%); }
   .progress { left: 8px; }
   .scroll-hint { display: none; }
   .connector-layer line { stroke-dasharray: 2 7; }
@@ -140,23 +155,23 @@ button { font: inherit; color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; }
+  .floating-copy > *, .resume-list li { opacity: 1; transform: none; }
+  .floating-copy .meta { opacity: .6; }
   .identity, .identity-avatar, .identity-details, .identity-toggle { transition: none; }
 }
 
 
-/* Portfolio: tarjetas algo más pequeñas para poder acumular proyectos sin solaparse. */
+/* Portfolio: tarjetas más pequeñas para poder acumular proyectos sin solaparse. */
 .portfolio-copy {
   width: min(270px, 24vw);
   padding: 11px 13px;
   text-decoration: none;
-  scale: var(--portfolio-slot-scale, 1);
-  transform-origin: center;
 }
 .portfolio-copy h3 { font-size: clamp(14px, 1.15vw, 18px); margin-bottom: 6px; }
 .portfolio-copy p { font-size: clamp(11px, .82vw, 13px); line-height: 1.42; }
 .portfolio-copy .meta { margin-top: 6px; font-size: 9px; }
-.copy-layer-front .portfolio-copy { cursor: pointer; }
-.copy-layer-front .portfolio-copy:hover { border-color: color-mix(in srgb, var(--accent) 70%, white 30%); background: linear-gradient(135deg, rgba(10,12,25,.60), rgba(10,12,25,.28)); }
+.copy-layer-front .portfolio-copy { cursor: pointer; transition: border-color .25s ease, background .25s ease; }
+.copy-layer-front .portfolio-copy:hover { border-color: color-mix(in srgb, var(--accent) 70%, white 30%); background: linear-gradient(135deg, rgba(10,12,25,.70), rgba(10,12,25,.38)); }
 .copy-layer-front .portfolio-copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 @media (max-width: 700px) {
