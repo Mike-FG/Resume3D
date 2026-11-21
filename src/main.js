@@ -60,12 +60,12 @@ const sections = [
     id: 'portfolio', label: 'Portfolio', geometry: 'bubbles', color: 0x22d3a8,
     bgA: '#06120f', bgB: '#073f39',
     blocks: [
-      ['Hermex', 'Aplicación personal en Python para gestión local de contraseñas.', 'Personal'],
-      ['YTScrapper', 'Herramienta de web scraping para descargar el MP4 disponible de mayor calidad sin restricciones de copyright.', 'Personal'],
-      ['Rolling Beats', 'Rhythm game con scripts orientados a automatizar parte del gameplay de las canciones.', 'Académico'],
-      ['Slime Journey', 'Proyecto de fin de grado centrado en shaders mediante programación nodal en Unity.', 'Académico'],
+      ['Hermex', 'Aplicación personal en Python para gestión local de contraseñas.', 'Personal', 'https://www.linkedin.com/feed/update/urn:li:ugcPost:7193413248598073344/'],
+      ['YTScrapper', 'Herramienta de web scraping para descargar el MP4 disponible de mayor calidad sin restricciones de copyright.', 'Personal', 'https://www.linkedin.com/feed/update/urn:li:activity:7201642709441253376/'],
+      ['Rolling Beats', 'Rhythm game con scripts orientados a automatizar parte del gameplay de las canciones.', 'Académico', 'https://banana-slip.itch.io/rolling-beats'],
+      ['Slime Journey', 'Proyecto de fin de grado centrado en shaders mediante programación nodal en Unity.', 'Académico', 'https://youtube.com/playlist?list=PLsYKITKCnOz0KZjsbG-Sgg7tPl8ZREyvc'],
       ['Real Estate Marketing App', 'Modelado 3D e integración en Unreal Engine para una aplicación de marketing inmobiliario.', 'Profesional'],
-      ['MOR Coffee', 'Trabajo de modelado 3D para una marca internacional de café.', 'Profesional'],
+      ['MOR Coffee', 'Trabajo de modelado 3D para una marca internacional de café.', 'Profesional', 'https://www.artstation.com/artwork/vD82qE'],
       ['Simple Graphic Engine', 'Motor gráfico basado en OpenGL con soporte para modelos 3D.', 'Académico'],
       ['Multiplayer Web Game', 'Aplicación Spring para juego local de dos jugadores con almacenamiento de puntuaciones.', 'Académico']
     ]
@@ -105,8 +105,6 @@ function colorToCss(color) {
   return `#${color.toString(16).padStart(6, '0')}`;
 }
 
-const PORTFOLIO_URL = 'https://www.youtube.com/';
-
 // Redes sociales junto a la tarjeta de contacto. Los iconos son SVG en línea para no depender de archivos externos.
 const socialLinks = [
   {
@@ -129,8 +127,9 @@ const socialLinks = [
 function renderFloatingBlock(section, block, blockIndex, back = false) {
   const attr = back ? `data-back-block="${blockIndex}" aria-hidden="true"` : `data-block="${blockIndex}"`;
   const body = `<h3>${block[0]}</h3>${renderBlockBody(block[1])}${block[2] ? `<p class="meta">${block[2]}</p>` : ''}`;
-  if (!back && section.id === 'portfolio') {
-    return `<a class="floating-copy portfolio-copy" ${attr} href="${PORTFOLIO_URL}" target="_blank" rel="noopener noreferrer" aria-label="Abrir ${block[0]} en YouTube">${body}</a>`;
+  // Solo son enlace las tarjetas de Portfolio que tienen URL (cuarto elemento del bloque).
+  if (!back && section.id === 'portfolio' && block[3]) {
+    return `<a class="floating-copy portfolio-copy" ${attr} href="${block[3]}" target="_blank" rel="noopener noreferrer" aria-label="Abrir ${block[0]}">${body}</a>`;
   }
   return `<article class="floating-copy${section.id === 'portfolio' ? ' portfolio-copy' : ''}" ${attr}>${body}</article>`;
 }
